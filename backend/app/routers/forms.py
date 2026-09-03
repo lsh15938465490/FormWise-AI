@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.ai_parser import parse_prompt_to_form, refine_form
@@ -12,8 +12,16 @@ router = APIRouter(prefix="/api/forms", tags=["forms"])
 
 
 class AiBody(BaseModel):
-    prompt: str = Field(min_length=4)
+    prompt: str
     formId: str | None = None
+
+    @field_validator("prompt")
+    @classmethod
+    def prompt_not_blank(cls, v: str) -> str:
+        s = (v or "").strip()
+        if len(s) < 4:
+            raise ValueError("提示词至少 4 个字")
+        return s
 
 
 class CreateForm(BaseModel):
@@ -118,6 +126,8 @@ def create_form(body: CreateForm, db: Session = Depends(get_db), auth: AuthUser 
 def get_form(form_id: str, db: Session = Depends(get_db), auth: AuthUser = Depends(require_permission("form:read"))):
     form = db.query(Form).filter(Form.id == form_id, Form.tenantId == auth.tenantId).first()
     if not form:
+        raise ApiError(404, "表单不存在")
+    if form.status != FormStatus.PUBLISHED and not auth.can("form:write"):
         raise ApiError(404, "表单不存在")
     if not _can_see_form(form, auth):
         raise ApiError(403, "无权限查看该表单")

@@ -50,10 +50,14 @@ export function FormBuilderPage() {
   const preview = useMemo(() => formFromFields(store.form?.name ?? "未命名", store.fields, store.linkage), [store.form, store.fields, store.linkage]);
 
   async function generate(refine = false) {
+    if (store.prompt.trim().length < 4) {
+      setError("提示词至少 4 个字");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const res = await formApi.aiGenerate(store.prompt, refine && id ? id : undefined);
+      const res = await formApi.aiGenerate(store.prompt.trim(), refine && id ? id : undefined);
       const fields = fieldsFromForm(res.form.schemaJson, res.form.layoutJson);
       store.setForm(res.form, fields, res.form.linkageJson as { rules: { source: string; target: string; type: string; optionMap?: Record<string, { label: string; value: string }[]> }[] });
       setParams({ id: res.form.id });

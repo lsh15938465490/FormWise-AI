@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel
-from sqlalchemy import String, asc, desc
+from sqlalchemy import Text, asc, cast, desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
@@ -39,7 +39,7 @@ def list_records(
     if status.strip():
         q = q.filter(FormRecord.status == status.strip())
     if keyword.strip():
-        q = q.filter(FormRecord.dataJson.cast(String).ilike(f"%{keyword.strip()}%"))
+        q = q.filter(cast(FormRecord.dataJson, Text).ilike(f"%{keyword.strip()}%"))
     sort_key = sort.strip()
     if sort_key and not __import__("re").fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", sort_key):
         sort_key = ""

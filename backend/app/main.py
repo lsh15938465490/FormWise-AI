@@ -4,6 +4,7 @@ import asyncio
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
@@ -67,7 +68,8 @@ async def api_error_handler(_req: Request, exc: ApiError):
 
 @app.exception_handler(RequestValidationError)
 async def valid_error_handler(_req: Request, exc: RequestValidationError):
-    return JSONResponse(status_code=400, content={"success": False, "message": "参数校验失败", "details": exc.errors()})
+    details = jsonable_encoder(exc.errors(), custom_encoder={Exception: str})
+    return JSONResponse(status_code=400, content={"success": False, "message": "参数校验失败", "details": details})
 
 
 @app.exception_handler(Exception)
