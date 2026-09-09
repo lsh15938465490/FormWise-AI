@@ -19,7 +19,7 @@ src/
 
 ## 启动
 
-需先启动后端 `http://localhost:3001`。
+需先启动后端 `http://localhost:8002`。
 
 ```bash
 cd frontend
@@ -27,7 +27,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 http://localhost:5173 ，演示账号 `admin@formwise.local` / `Admin123!`。
+浏览器打开 http://localhost:5175 ，演示账号 `admin@formwise.local` / `Admin123!`。
 
 已实现：AI 表单生成与字段微调、Zod 校验提交、流程拖拽编排、动态 CRUD、待办审批、消息中心、RBAC 配置、插件注册。
 

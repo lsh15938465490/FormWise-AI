@@ -11,10 +11,10 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 python -m app.seed
-uvicorn app.main:app --reload --port 3001
+uvicorn app.main:app --reload --port 8002
 ```
 
-- 服务地址：http://localhost:3001
+- 服务地址：http://localhost:8002
 - 演示账号：`admin@formwise.local` / `Admin123!`
 
 ## 目录

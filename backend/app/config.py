@@ -10,11 +10,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")
 
     NODE_ENV: str = "development"
-    PORT: int = 3001
+    PORT: int = 8002
     DATABASE_URL: str = "postgresql://formwise:formwise@localhost:5433/formwise"
     JWT_SECRET: str = "formwise-dev-jwt-secret-change-me"
     JWT_EXPIRES_IN: str = "7d"
-    CORS_ORIGIN: str = "http://localhost:5173"
+    CORS_ORIGIN: str = "http://localhost:5175"
     AI_PROVIDER: str = "mock"
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"

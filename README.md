@@ -10,7 +10,7 @@
 
 ## 快速启动
 
-后端见 `backend/README.md`（默认 `http://localhost:3001`）。
+后端见 `backend/README.md`（默认 `http://localhost:8002`）。
 
 ```bash
 cd frontend
@@ -18,4 +18,4 @@ npm install
 npm run dev
 ```
 
-前端开发服务器：`http://localhost:5173`，接口通过 Vite 代理到 3001。
+前端开发服务器：`http://localhost:5175`，接口通过 Vite 代理到 8002。

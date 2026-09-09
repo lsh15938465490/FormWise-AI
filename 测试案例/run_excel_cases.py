@@ -17,7 +17,7 @@ from app.db import SessionLocal  # noqa: E402
 from app.models import Tenant, User, UserStatus  # noqa: E402
 from app.security import hash_password  # noqa: E402
 
-BASE = os.environ.get("API_BASE", "http://127.0.0.1:3001")
+BASE = os.environ.get("API_BASE", "http://127.0.0.1:8002")
 results: list[dict] = []
 
 

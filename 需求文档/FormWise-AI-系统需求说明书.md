@@ -53,15 +53,15 @@
 | 前端 | React 18、TypeScript、Vite 7、React Router、Zustand、React Hook Form、Zod、Tailwind、React Flow（`@xyflow/react`） |
 | 后端 | Python 3.11、FastAPI、SQLAlchemy 2、PostgreSQL、PyJWT、bcrypt |
 | 实时通道 | WebSocket，路径 `/ws?token=` |
-| 开发代理 | Vite 将 `/api`、`/health`、`/ws` 代理到 `127.0.0.1:3001` |
+| 开发代理 | Vite 将 `/api`、`/health`、`/ws` 代理到 `127.0.0.1:8002` |
 | 数据存储 | PostgreSQL（Docker 映射主机 `5433`）。Compose 中含 Redis，当前业务主路径**未强制依赖 Redis** |
 
 ### 2.2 部署与端口
 
 | 服务 | 默认地址 |
 |------|----------|
-| 前端开发服务器 | `http://localhost:5173` |
-| 后端 HTTP / WS | `http://localhost:3001` |
+| 前端开发服务器 | `http://localhost:5175` |
+| 后端 HTTP / WS | `http://localhost:8002` |
 | 健康检查 | `GET /health`、`GET /api/health`（后者探测数据库） |
 
 统一 HTTP 响应：`{ "success": true/false, "message": "...", "data": ... }`。分页：`data.items / total / page / pageSize / totalPages`。失败时 HTTP 状态码与 `success: false` 同时给出。
@@ -337,8 +337,8 @@
 | NFR-01 安全 | 密码 bcrypt；JWT 密钥来自环境变量；生产环境 500 不回传异常细节；改用户必须同租户。 |
 | NFR-02 隔离 | 业务查询带 `tenantId`。 |
 | NFR-03 分页 | 列表 page 从 1，pageSize 限制 1–100。 |
-| NFR-04 可用性 | 前端连不上后端时提示启动 3001/5173，避免仅显示 `Failed to fetch`。 |
-| NFR-05 开发体验 | 后端 `--reload`；Vite `strictPort: 5173`。 |
+| NFR-04 可用性 | 前端连不上后端时提示启动 8002/5175，避免仅显示 `Failed to fetch`。 |
+| NFR-05 开发体验 | 后端 `--reload`；Vite `strictPort: 5175`。 |
 | NFR-06 审计 | 流程关键动作写入 WorkflowLog。 |
 
 ---

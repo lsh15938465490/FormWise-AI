@@ -1,6 +1,6 @@
 /**
  * 统一请求入口。页面只调 xxxApi.list()，不要自己 fetch。
- * BASE 为空时走 Vite 代理到后端 3001。
+ * BASE 为空时走 Vite 代理到后端 8002。
  */
 import type { ApiResult, AuthUser, FormEntity, Paginated, PluginEntity, WorkflowEntity } from "@/types/api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -30,7 +30,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch {
     throw new ApiError(
       0,
-      "无法连接服务器。请先启动后端（端口 3001）和前端（npm run dev，端口 5173），然后刷新页面再登录。",
+      "无法连接服务器。请先启动后端（端口 8002）和前端（npm run dev，端口 5175），然后刷新页面再登录。",
     );
   }
   const json = (await res.json().catch(() => ({}))) as ApiResult<T> & { message?: string };
