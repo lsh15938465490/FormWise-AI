@@ -8,9 +8,8 @@ import os
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.db import SessionLocal, engine
+from app.db import SessionLocal, init_db
 from app.models import (
-    Base,
     Permission,
     Plugin,
     PluginType,
@@ -62,7 +61,7 @@ PERM_DEFS = [
 
 
 def seed() -> None:
-    Base.metadata.create_all(bind=engine)
+    init_db()
     db: Session = SessionLocal()
     try:
         empty_only = os.getenv("SEED_IF_EMPTY", "").lower() in ("1", "true", "yes")

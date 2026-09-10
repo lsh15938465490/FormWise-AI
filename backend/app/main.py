@@ -9,9 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import get_settings
-from app.db import engine, ensure_schema
-from app.http import ApiError
-from app.models import Base
+from app.db import engine, init_db
 from app.routers.auth import router as auth_router
 from app.routers.forms import router as forms_router
 from app.routers.misc import job_router, plugin_router
@@ -28,8 +26,7 @@ from app.ws import bind_socket, unbind_socket
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    ensure_schema()
+    init_db()
     stop = asyncio.Event()
 
     async def timeout_loop():

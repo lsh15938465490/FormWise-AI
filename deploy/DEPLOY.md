@@ -38,7 +38,17 @@ docker compose up -d --build
 | `CORS_ORIGIN` | 公网访问地址，如 `http://192.168.1.10` 或 `https://formwise.example.com` |
 | `SEED_IF_EMPTY` | `true` 时仅空库播种，重启不会清数据 |
 
-## 常用命令
+## 后端 unhealthy / web 起不来
+
+```bash
+docker compose logs backend
+```
+
+常见原因：空库缺少 PostgreSQL 枚举类型（已在代码里自动创建）。改完代码后重新构建：
+
+```bash
+docker compose up -d --build backend
+```
 
 ```bash
 docker compose ps
