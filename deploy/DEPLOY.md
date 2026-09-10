@@ -1,12 +1,12 @@
 # FormWise-AI 云服务器 Docker 部署
 
-单机用 Docker Compose：Nginx（前端）+ FastAPI + PostgreSQL。浏览器只访问 **80** 端口，`/api`、`/health`、`/ws` 由 Nginx 转到后端。
+单机用 Docker Compose：Nginx（前端）+ FastAPI + PostgreSQL。浏览器可访问 **80** 或 **5175**（都指向同一套 Nginx，`/api`、`/health`、`/ws` 转到后端）。
 
 ## 环境要求
 
 - Linux 云主机（建议 2 核 2G 以上）
 - Docker 与 Docker Compose 插件
-- 安全组放行 **80**（可选 443）
+- 安全组放行 **80** 和 **5175**（可选 443）
 
 ## 步骤
 
@@ -18,7 +18,11 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-浏览器打开 `http://服务器公网IP`。
+浏览器打开：
+
+- `http://服务器公网IP`（80）
+- `http://服务器公网IP:5175`（与本地开发端口一致）
+- `http://服务器公网IP:5175/login`
 
 首次空库会写入演示账号：
 
@@ -32,7 +36,8 @@ docker compose up -d --build
 
 | 变量 | 说明 |
 |------|------|
-| `WEB_PORT` | 宿主机映射端口，默认 80 |
+| `WEB_PORT` | 宿主机 80 映射，默认 80 |
+| `WEB_DEV_PORT` | 宿主机 5175 映射，云上可用 `:5175` 打开页面 |
 | `JWT_SECRET` | 生产必须改掉 |
 | `POSTGRES_PASSWORD` | 生产必须改掉 |
 | `CORS_ORIGIN` | 公网访问地址，如 `http://192.168.1.10` 或 `https://formwise.example.com` |
@@ -54,6 +59,7 @@ docker compose up -d --build backend
 docker compose ps
 docker compose logs -f backend
 docker compose logs -f web
+curl http://127.0.0.1:5175/health
 curl http://127.0.0.1/health
 docker compose down          # 停服务，保留数据卷
 docker compose down -v       # 停服务并删除数据库卷
