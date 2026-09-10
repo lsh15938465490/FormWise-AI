@@ -1,3 +1,5 @@
+# 仅本地开发：在宿主机跑前后端时起数据库（Postgres 映射 5433）。
+# 云服务器请用仓库根目录 docker-compose.yml。
 services:
   postgres:
     image: postgres:16-alpine

@@ -1,4 +1,9 @@
-"""写入演示数据。用法：在 backend 目录执行  python -m app.seed"""
+"""写入演示数据。用法：在 backend 目录执行  python -m app.seed
+
+环境变量 SEED_IF_EMPTY=true 时：库里已有租户则跳过，避免云上重启把数据清空。
+"""
+
+import os
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -60,19 +65,24 @@ def seed() -> None:
     Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
-        db.execute(
-            text(
-                """
-                TRUNCATE TABLE
-                  "AsyncJob", "Plugin", "Notification", "WorkflowLog", "WorkflowTask",
-                  "WorkflowInstance", "FormRecord", "FormDraft", "WorkflowDefinition",
-                  "WorkflowTemplate", "Form", "RolePermission", "UserRole", "Permission",
-                  "Role", "User", "Tenant"
-                RESTART IDENTITY CASCADE
-                """
+        empty_only = os.getenv("SEED_IF_EMPTY", "").lower() in ("1", "true", "yes")
+        if empty_only and db.query(Tenant).first():
+            print("Seed skipped: tenant already exists.")
+            return
+        if not empty_only:
+            db.execute(
+                text(
+                    """
+                    TRUNCATE TABLE
+                      "AsyncJob", "Plugin", "Notification", "WorkflowLog", "WorkflowTask",
+                      "WorkflowInstance", "FormRecord", "FormDraft", "WorkflowDefinition",
+                      "WorkflowTemplate", "Form", "RolePermission", "UserRole", "Permission",
+                      "Role", "User", "Tenant"
+                    RESTART IDENTITY CASCADE
+                    """
+                )
             )
-        )
-        db.commit()
+            db.commit()
 
         tenant = Tenant(name="FormWise Demo", slug="demo")
         db.add(tenant)

@@ -52,9 +52,18 @@ async def lifespan(_app: FastAPI):
 settings = get_settings()
 app = FastAPI(title="FormWise-AI Backend", lifespan=lifespan, redirect_slashes=False)
 
+
+def _cors_origins() -> list[str]:
+    items = [o.strip() for o in (settings.CORS_ORIGIN or "").split(",") if o.strip()]
+    for extra in ("http://localhost:5175", "http://127.0.0.1:5175"):
+        if extra not in items:
+            items.append(extra)
+    return items
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.CORS_ORIGIN, "http://localhost:5175"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

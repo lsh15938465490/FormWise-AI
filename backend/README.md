@@ -17,6 +17,8 @@ uvicorn app.main:app --reload --port 8002
 - 服务地址：http://localhost:8002
 - 演示账号：`admin@formwise.local` / `Admin123!`
 
+云上完整编排（前端 Nginx + 后端 + 数据库）用仓库根目录 `docker-compose.yml`，说明见 `deploy/DEPLOY.md`。
+
 ## 目录
 
 ```

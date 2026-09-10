@@ -1,0 +1,10 @@
+.git
+.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/.env
+简历
+测试案例
+需求文档
+*.md
