@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import engine, init_db
+from app.http import ApiError
 from app.routers.auth import router as auth_router
 from app.routers.forms import router as forms_router
 from app.routers.misc import job_router, plugin_router
