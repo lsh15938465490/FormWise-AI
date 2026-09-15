@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db, utcnow
 from app.deps import AuthUser, get_current_user, require_permission
+from app.form_options import fill_schema_options
 from app.http import ApiError, dump, ok, paginated
-from app.models import Form, FormStatus, TaskStatus, WorkflowDefStatus, WorkflowDefinition, WorkflowInstance, WorkflowLog, WorkflowTask, WorkflowTemplate
+from app.models import Form, FormStatus, TaskStatus, User, WorkflowDefStatus, WorkflowDefinition, WorkflowInstance, WorkflowLog, WorkflowTask, WorkflowTemplate
 from app.workflow_engine import act_on_task
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
@@ -27,6 +28,8 @@ class FlowNode(BaseModel):
 class FlowEdge(BaseModel):
     source: str
     target: str
+    sourceHandle: str | None = None
+    targetHandle: str | None = None
     condition: str | None = None
 
 
@@ -101,7 +104,7 @@ def apply_template(template_id: str, db: Session = Depends(get_db), auth: AuthUs
         tenantId=auth.tenantId,
         name=tpl.name,
         description=tpl.description,
-        schemaJson=tpl.formSchemaJson,
+        schemaJson=fill_schema_options(tpl.formSchemaJson or {}),
         dataModelJson={"fields": []},
         linkageJson={"rules": []},
         layoutJson={"groups": []},
@@ -215,21 +218,67 @@ def publish_workflow(workflow_id: str, db: Session = Depends(get_db), auth: Auth
     return ok(wf)
 
 
-def _dump_task(t: WorkflowTask) -> dict:
+@router.delete("/{workflow_id}")
+def delete_workflow(workflow_id: str, db: Session = Depends(get_db), auth: AuthUser = Depends(require_permission("workflow:write"))):
+    wf = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id, WorkflowDefinition.tenantId == auth.tenantId).first()
+    if not wf:
+        raise ApiError(404, "工作流不存在")
+    instance_ids = [row[0] for row in db.query(WorkflowInstance.id).filter(WorkflowInstance.workflowId == wf.id).all()]
+    if instance_ids:
+        db.query(WorkflowLog).filter(WorkflowLog.instanceId.in_(instance_ids)).delete(synchronize_session=False)
+        db.query(WorkflowTask).filter(WorkflowTask.instanceId.in_(instance_ids)).delete(synchronize_session=False)
+        db.query(WorkflowInstance).filter(WorkflowInstance.id.in_(instance_ids)).delete(synchronize_session=False)
+    db.delete(wf)
+    db.commit()
+    return ok({"id": workflow_id})
+
+
+def _dump_task(t: WorkflowTask, *, form_name: str | None = None, initiator_name: str | None = None) -> dict:
     inst = dump(t.instance, extra={"workflow": dump(t.instance.workflow)}) if t.instance else None
-    return dump(t, extra={"instance": inst})
+    return dump(
+        t,
+        extra={
+            "instance": inst,
+            "formName": form_name,
+            "initiatorName": initiator_name,
+        },
+    )
+
+
+def _task_extras(db: Session, items: list[WorkflowTask]) -> tuple[dict[str, str], dict[str, str]]:
+    form_ids = {t.instance.formId for t in items if t.instance and t.instance.formId}
+    user_ids = {t.instance.initiatorId for t in items if t.instance}
+    forms = {f.id: f.name for f in db.query(Form).filter(Form.id.in_(form_ids)).all()} if form_ids else {}
+    users = {u.id: u.name for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    return forms, users
 
 
 @task_router.get("/todo")
 def todo(db: Session = Depends(get_db), auth: AuthUser = Depends(get_current_user)):
-    items = (
+    q = (
         db.query(WorkflowTask)
+        .join(WorkflowInstance, WorkflowTask.instanceId == WorkflowInstance.id)
+        .join(WorkflowDefinition, WorkflowInstance.workflowId == WorkflowDefinition.id)
         .options(joinedload(WorkflowTask.instance).joinedload(WorkflowInstance.workflow))
-        .filter(WorkflowTask.assigneeId == auth.id, WorkflowTask.status == TaskStatus.PENDING)
-        .order_by(WorkflowTask.createdAt.desc())
-        .all()
+        .filter(
+            WorkflowDefinition.tenantId == auth.tenantId,
+            WorkflowTask.status.in_([TaskStatus.PENDING, TaskStatus.TIMEOUT]),
+        )
     )
-    return ok([_dump_task(t) for t in items])
+    if "admin" not in auth.roles:
+        q = q.filter(WorkflowTask.assigneeId == auth.id)
+    items = q.order_by(WorkflowTask.createdAt.desc()).all()
+    forms, users = _task_extras(db, items)
+    return ok(
+        [
+            _dump_task(
+                t,
+                form_name=forms.get(t.instance.formId) if t.instance and t.instance.formId else None,
+                initiator_name=users.get(t.instance.initiatorId) if t.instance else None,
+            )
+            for t in items
+        ]
+    )
 
 
 @task_router.get("/done")
@@ -242,18 +291,44 @@ def done(db: Session = Depends(get_db), auth: AuthUser = Depends(get_current_use
         .limit(50)
         .all()
     )
-    return ok([_dump_task(t) for t in items])
+    forms, users = _task_extras(db, items)
+    return ok(
+        [
+            _dump_task(
+                t,
+                form_name=forms.get(t.instance.formId) if t.instance and t.instance.formId else None,
+                initiator_name=users.get(t.instance.initiatorId) if t.instance else None,
+            )
+            for t in items
+        ]
+    )
 
 
 @task_router.post("/{task_id}/approve")
 async def approve(task_id: str, body: CommentBody | None = None, db: Session = Depends(get_db), auth: AuthUser = Depends(get_current_user)):
     comment = body.comment if body else None
-    result = await act_on_task(db, tenant_id=auth.tenantId, user_id=auth.id, task_id=task_id, action="approve", comment=comment)
+    result = await act_on_task(
+        db,
+        tenant_id=auth.tenantId,
+        user_id=auth.id,
+        task_id=task_id,
+        action="approve",
+        comment=comment,
+        is_admin="admin" in auth.roles,
+    )
     return ok(_dump_instance(result))
 
 
 @task_router.post("/{task_id}/reject")
 async def reject(task_id: str, body: CommentBody | None = None, db: Session = Depends(get_db), auth: AuthUser = Depends(get_current_user)):
     comment = body.comment if body else None
-    result = await act_on_task(db, tenant_id=auth.tenantId, user_id=auth.id, task_id=task_id, action="reject", comment=comment)
+    result = await act_on_task(
+        db,
+        tenant_id=auth.tenantId,
+        user_id=auth.id,
+        task_id=task_id,
+        action="reject",
+        comment=comment,
+        is_admin="admin" in auth.roles,
+    )
     return ok(_dump_instance(result))

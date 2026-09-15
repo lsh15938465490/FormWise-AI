@@ -33,11 +33,11 @@ export function FormSubmitPage() {
         schemaJson={form.schemaJson}
         layoutJson={form.layoutJson}
         linkageJson={form.linkageJson}
-        submitText="提交并启动流程"
+        submitText="提交申请"
         onSubmit={async (values) => {
           try {
             const res = await recordApi.create(form.id, values);
-            setMsg(res.instance ? "已提交，流程已启动" : "已提交入库");
+            setMsg(res.instance ? "已提交，等待审批" : "已提交");
             setTimeout(() => navigate("/records"), 800);
           } catch (err) {
             setError(errMsg(err, "提交失败"));

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { formApi, pluginApi, taskApi, workflowApi } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 
 export function DashboardPage() {
+  const isAdmin = useAuthStore((s) => s.user?.roles.includes("admin"));
   const [stats, setStats] = useState({ forms: 0, workflows: 0, todos: 0, plugins: 0, instances: 0 });
   const [error, setError] = useState("");
 
@@ -29,20 +31,20 @@ export function DashboardPage() {
 
   const cards = [
     { label: "表单", value: stats.forms, to: "/forms" },
-    { label: "工作流", value: stats.workflows, to: "/workflows" },
-    { label: "流程实例", value: stats.instances, to: "/workflows/trace" },
+    { label: "审批流程", value: stats.workflows, to: "/workflows" },
+    { label: "办理中申请", value: stats.instances, to: "/workflows/trace" },
     { label: "待办", value: stats.todos, to: "/tasks" },
-    { label: "插件", value: stats.plugins, to: "/admin/plugins" },
+    ...(isAdmin ? [{ label: "控件扩展", value: stats.plugins, to: "/admin/plugins" }] : []),
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">工作台</h1>
-        <p className="text-sm text-muted-foreground">自然语言生成表单 → 可视化流程 → 提交审批 → 数据归档</p>
+        <p className="text-sm text-muted-foreground">填写申请、跟进审批、查看业务数据</p>
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className={`grid gap-4 ${isAdmin ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
         {cards.map((c) => (
           <Link key={c.label} to={c.to}>
             <Card>

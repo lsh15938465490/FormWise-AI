@@ -28,18 +28,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError(
-      0,
-      "无法连接服务器。请先启动后端（端口 8002）和前端（npm run dev，端口 5175），然后刷新页面再登录。",
-    );
+    throw new ApiError(0, "无法连接服务器，请稍后重试或联系管理员。");
   }
-  const json = (await res.json().catch(() => ({}))) as ApiResult<T> & { message?: string };
+  const json = (await res.json().catch(() => ({}))) as ApiResult<T> & { message?: string; detail?: unknown };
   if (!res.ok || json.success === false) {
-    // 登录接口本身失败不要清 token，否则会把刚输入的会话冲掉
     if (res.status === 401 && !path.includes("/api/auth/login")) {
       useAuthStore.getState().logout();
     }
-    throw new ApiError(res.status, json.message ?? "请求失败");
+    const detail = typeof json.detail === "string" ? json.detail : undefined;
+    throw new ApiError(res.status, json.message || detail || "操作失败，请稍后重试");
   }
   return json.data;
 }
@@ -56,7 +53,7 @@ export const authApi = {
 };
 
 export const formApi = {
-  list: (page = 1) => api<Paginated<FormEntity>>(`/api/forms?page=${page}&pageSize=50`),
+  list: (page = 1) => api<Paginated<FormEntity>>(`/api/forms?page=${page}&pageSize=100`),
   get: (id: string) => api<FormEntity & { drafts?: { contentJson: unknown }[] }>(`/api/forms/${id}`),
   create: (body: Partial<FormEntity> & { name: string }) =>
     api<FormEntity>("/api/forms", { method: "POST", body: JSON.stringify(body) }),
@@ -73,13 +70,14 @@ export const formApi = {
 };
 
 export const workflowApi = {
-  list: () => api<Paginated<WorkflowEntity>>("/api/workflows"),
+  list: () => api<Paginated<WorkflowEntity>>("/api/workflows?page=1&pageSize=100"),
   get: (id: string) => api<WorkflowEntity>(`/api/workflows/${id}`),
   create: (body: { name: string; formId?: string; definitionJson: WorkflowEntity["definitionJson"] }) =>
     api<WorkflowEntity>("/api/workflows", { method: "POST", body: JSON.stringify(body) }),
   update: (id: string, body: Record<string, unknown>) =>
     api<WorkflowEntity>(`/api/workflows/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   publish: (id: string) => api<WorkflowEntity>(`/api/workflows/${id}/publish`, { method: "POST" }),
+  remove: (id: string) => api<{ id: string }>(`/api/workflows/${id}`, { method: "DELETE" }),
   templates: () =>
     api<{ id: string; name: string; category: string; description?: string }[]>("/api/workflows/templates"),
   saveTemplate: (body: Record<string, unknown>) =>
@@ -111,7 +109,7 @@ export const recordApi = {
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "records.xlsx";
+    a.download = "业务数据.xlsx";
     a.click();
   },
   create: (formId: string, dataJson: Record<string, unknown>) =>

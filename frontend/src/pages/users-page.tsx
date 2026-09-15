@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { roleApi, userApi } from "@/lib/api";
 import { usePermission } from "@/hooks/use-permission";
+import { USER_STATUS, labelOf } from "@/lib/labels";
 
 type User = {
   id: string;
@@ -42,7 +43,7 @@ export function UsersPage() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="space-y-3">
-        <h1 className="text-lg font-semibold">用户</h1>
+        <h1 className="text-lg font-semibold">成员</h1>
         <div className="flex gap-2">
           <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索姓名/邮箱" />
           <Button variant="outline" onClick={() => load()}>
@@ -54,7 +55,7 @@ export function UsersPage() {
           {users.map((u) => (
             <li key={u.id} className="rounded border p-3">
               <div className="font-medium">
-                {u.name} · {u.email} · {u.status}
+                {u.name} · {u.email} · {labelOf(USER_STATUS, u.status)}
               </div>
               {can("role:write") ? (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -92,9 +93,7 @@ export function UsersPage() {
           const selected = new Set(r.permissions.map((p) => p.permission.id));
           return (
             <div key={r.id} className="rounded border p-3 text-sm">
-              <div className="mb-2 font-medium">
-                {r.name} ({r.code})
-              </div>
+              <div className="mb-2 font-medium">{r.name}</div>
               <div className="flex flex-wrap gap-2">
                 {perms.map((p) => (
                   <label key={p.id} className="flex items-center gap-1">
@@ -110,7 +109,7 @@ export function UsersPage() {
                         await load();
                       }}
                     />
-                    {p.code}
+                    {p.name}
                   </label>
                 ))}
               </div>

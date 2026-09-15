@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.ai_parser import parse_prompt_to_form, refine_form
 from app.db import get_db, utcnow
 from app.deps import AuthUser, require_permission
+from app.form_options import fill_schema_options
 from app.http import ApiError, dump, ok, paginated
 from app.models import Form, FormDraft, FormStatus
 
@@ -57,6 +58,12 @@ def _can_see_form(form: Form, auth: AuthUser) -> bool:
     return any(c in auth.roles for c in codes)
 
 
+def dump_form(form: Form, extra: dict | None = None) -> dict:
+    data = dump(form, extra=extra)
+    data["schemaJson"] = fill_schema_options(data.get("schemaJson") or {})
+    return data
+
+
 @router.post("/ai-generate", status_code=201)
 def ai_generate(body: AiBody, db: Session = Depends(get_db), auth: AuthUser = Depends(require_permission("form:write"))):
     current = None
@@ -80,7 +87,7 @@ def ai_generate(body: AiBody, db: Session = Depends(get_db), auth: AuthUser = De
         form.layoutJson = generated["layoutJson"]
         db.commit()
         db.refresh(form)
-        return ok({"form": dump(form), "generated": generated})
+        return ok({"form": dump_form(form), "generated": generated})
     generated = parse_prompt_to_form(body.prompt)
     form = Form(
         tenantId=auth.tenantId,
@@ -96,7 +103,7 @@ def ai_generate(body: AiBody, db: Session = Depends(get_db), auth: AuthUser = De
     db.add(form)
     db.commit()
     db.refresh(form)
-    return ok({"form": dump(form), "generated": generated})
+    return ok({"form": dump_form(form), "generated": generated})
 
 
 @router.get("")
@@ -109,17 +116,19 @@ def list_forms(page: int = 1, pageSize: int = 20, db: Session = Depends(get_db),
     rows = q.order_by(Form.updatedAt.desc()).all()
     visible = [f for f in rows if _can_see_form(f, auth)]
     total = len(visible)
-    items = visible[(page - 1) * page_size : (page - 1) * page_size + page_size]
+    items = [dump_form(f) for f in visible[(page - 1) * page_size : (page - 1) * page_size + page_size]]
     return paginated(items, total, page, page_size)
 
 
 @router.post("", status_code=201)
 def create_form(body: CreateForm, db: Session = Depends(get_db), auth: AuthUser = Depends(require_permission("form:write"))):
-    form = Form(tenantId=auth.tenantId, createdById=auth.id, **body.model_dump())
+    payload = body.model_dump()
+    payload["schemaJson"] = fill_schema_options(payload.get("schemaJson") or {})
+    form = Form(tenantId=auth.tenantId, createdById=auth.id, **payload)
     db.add(form)
     db.commit()
     db.refresh(form)
-    return ok(form)
+    return ok(dump_form(form))
 
 
 @router.get("/{form_id}")
@@ -132,7 +141,7 @@ def get_form(form_id: str, db: Session = Depends(get_db), auth: AuthUser = Depen
     if not _can_see_form(form, auth):
         raise ApiError(403, "无权限查看该表单")
     drafts = db.query(FormDraft).filter(FormDraft.formId == form.id, FormDraft.userId == auth.id).all()
-    return ok(dump(form, extra={"drafts": dump(drafts)}))
+    return ok(dump_form(form, extra={"drafts": dump(drafts)}))
 
 
 @router.patch("/{form_id}")
@@ -140,11 +149,14 @@ def patch_form(form_id: str, body: PatchForm, db: Session = Depends(get_db), aut
     form = db.query(Form).filter(Form.id == form_id, Form.tenantId == auth.tenantId).first()
     if not form:
         raise ApiError(404, "表单不存在")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if "schemaJson" in data and data["schemaJson"] is not None:
+        data["schemaJson"] = fill_schema_options(data["schemaJson"])
+    for k, v in data.items():
         setattr(form, k, v)
     db.commit()
     db.refresh(form)
-    return ok(form)
+    return ok(dump_form(form))
 
 
 @router.post("/{form_id}/publish")
@@ -156,7 +168,7 @@ def publish_form(form_id: str, db: Session = Depends(get_db), auth: AuthUser = D
     form.publishedAt = utcnow()
     db.commit()
     db.refresh(form)
-    return ok(form)
+    return ok(dump_form(form))
 
 
 @router.put("/{form_id}/draft")

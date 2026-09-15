@@ -8,6 +8,16 @@ from app.models import Role, Tenant, User, UserRole, UserStatus
 from app.security import create_token, hash_password, verify_password
 from pydantic import BaseModel, Field
 
+DEMO_LOGINS = {
+    "admin": "admin@formwise.local",
+}
+
+
+def _login_email(raw: str) -> str:
+    key = (raw or "").strip().lower()
+    return DEMO_LOGINS.get(key, (raw or "").strip())
+
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -29,10 +39,11 @@ def login(body: LoginBody, db: Session = Depends(get_db)):
     tenant = db.query(Tenant).filter(Tenant.slug == body.tenantSlug).first()
     if not tenant:
         raise ApiError(404, "租户不存在")
+    email = _login_email(body.email)
     user = (
         db.query(User)
         .options(joinedload(User.userRoles).joinedload(UserRole.role))
-        .filter(User.tenantId == tenant.id, User.email == body.email)
+        .filter(User.tenantId == tenant.id, User.email == email)
         .first()
     )
     if not user or not verify_password(body.password, user.passwordHash):

@@ -20,16 +20,21 @@ export function FormFieldCanvas({
   const fields = fieldsFromForm(schemaJson, layoutJson);
   const layout = layoutJson as LayoutJson;
   const linkage = (linkageJson as LinkageJson | undefined) ?? { rules: [] };
-  const groups = layout.groups?.length
+  const groupsRaw = layout.groups?.length
     ? layout.groups
     : [{ key: "all", title: "表单字段", fields: fields.map((f) => f.name) }];
+  const listed = new Set(groupsRaw.flatMap((g) => g.fields ?? []));
+  const missing = fields.map((f) => f.name).filter((n) => !listed.has(n));
+  const groups = missing.length
+    ? [...groupsRaw, { key: "_rest", title: "其他", fields: missing }]
+    : groupsRaw;
 
   return (
     <div className="space-y-6">
       {groups.map((group) => (
         <section key={group.key} className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground">{group.title}</h3>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid items-start gap-4 md:grid-cols-2">
             {group.fields.map((name) => {
               const def = fields.find((f) => f.name === name);
               if (!def) return null;
@@ -77,7 +82,7 @@ function FieldSlot({
     const rows = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
     const items = def.itemFields?.length ? def.itemFields : [{ name: "content", title: "内容", type: "string" as const, component: "Input", required: false }];
     return (
-      <div className="space-y-2 md:col-span-2">
+      <div className="space-y-2 md:col-span-2" data-form-field={def.name}>
         <div className="text-sm font-medium">{def.title}</div>
         {rows.map((row, idx) => (
           <div key={idx} className="grid gap-2 rounded border p-2 md:grid-cols-2">
@@ -106,7 +111,11 @@ function FieldSlot({
         <button className="text-sm text-primary" type="button" onClick={() => onChange([...rows, {}])}>
           新增一行
         </button>
-        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+        {error ? (
+          <p className="mt-1 text-xs text-destructive" data-field-error>
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -119,10 +128,15 @@ function FieldSlot({
     required: def.required,
   };
   const Widget = getFormWidget(def.component);
+  const wide = def.component === "Textarea" || def.component === "SubForm" || def.component === "Upload";
   return (
-    <div>
+    <div data-form-field={def.name} className={wide ? "md:col-span-2" : undefined}>
       <Widget field={field} value={value} allValues={allValues} onChange={onChange} />
-      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="mt-1 text-xs text-destructive" data-field-error>
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -50,7 +50,7 @@ export type WorkflowEntity = {
       x?: number;
       y?: number;
     }[];
-    edges: { source: string; target: string; condition?: string }[];
+    edges: { source: string; target: string; sourceHandle?: string; targetHandle?: string; condition?: string }[];
   };
 };
 

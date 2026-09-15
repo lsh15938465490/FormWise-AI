@@ -8,6 +8,7 @@ from app.db import SessionLocal, utcnow
 from app.excel_export import edge_matches
 from app.http import ApiError, dump
 from app.models import (
+    Form,
     FormRecord,
     InstanceStatus,
     Notification,
@@ -25,6 +26,44 @@ from app.models import (
 from app.ws import push_to_user
 
 
+DEFAULT_FLOW = {
+    "nodes": [
+        {"id": "start", "type": "start", "name": "发起"},
+        {"id": "approve", "type": "approve", "name": "部门经理审批", "assigneeRole": "manager", "timeoutHours": 24},
+        {"id": "end", "type": "end", "name": "结束"},
+    ],
+    "edges": [{"source": "start", "target": "approve"}, {"source": "approve", "target": "end"}],
+}
+
+
+def ensure_published_workflow(db: Session, *, form: Form, user_id: str) -> WorkflowDefinition:
+    wf = (
+        db.query(WorkflowDefinition)
+        .filter(
+            WorkflowDefinition.formId == form.id,
+            WorkflowDefinition.tenantId == form.tenantId,
+            WorkflowDefinition.status == WorkflowDefStatus.PUBLISHED,
+        )
+        .order_by(WorkflowDefinition.publishedAt.desc())
+        .first()
+    )
+    if wf:
+        return wf
+    wf = WorkflowDefinition(
+        tenantId=form.tenantId,
+        formId=form.id,
+        name=f"{form.name}流程",
+        definitionJson=DEFAULT_FLOW,
+        createdById=user_id,
+        status=WorkflowDefStatus.PUBLISHED,
+        publishedAt=utcnow(),
+    )
+    db.add(wf)
+    db.commit()
+    db.refresh(wf)
+    return wf
+
+
 def _as_def(raw) -> dict:
     if not isinstance(raw, dict):
         return {"nodes": [], "edges": []}
@@ -35,7 +74,10 @@ async def _notify(db: Session, user_id: str, category: NotificationCategory, tit
     n = Notification(userId=user_id, category=category, title=title, content=content, relatedType="workflow", relatedId=related_id)
     db.add(n)
     db.flush()
-    await push_to_user(user_id, {"type": "notification", "data": dump(n)})
+    try:
+        await push_to_user(user_id, {"type": "notification", "data": dump(n)})
+    except Exception:
+        pass
 
 
 def _users_by_role(db: Session, tenant_id: str, role_code: str) -> list[User]:
@@ -152,6 +194,14 @@ async def _advance_from(db: Session, instance_id: str, from_node_id: str, tenant
             .filter(User.tenantId == tenant_id, User.status == UserStatus.ACTIVE, Role.code == role)
             .all()
         )
+        if not assignees:
+            assignees = (
+                db.query(User)
+                .join(UserRole, UserRole.userId == User.id)
+                .join(Role, Role.id == UserRole.roleId)
+                .filter(User.tenantId == tenant_id, User.status == UserStatus.ACTIVE, Role.code == "admin")
+                .all()
+            )
         hours = node.get("timeoutHours")
         due_at = utcnow() + timedelta(hours=hours) if hours else None
         node_type = node.get("type")
@@ -170,8 +220,8 @@ async def _advance_from(db: Session, instance_id: str, from_node_id: str, tenant
             db.flush()
             category = NotificationCategory.CC if task_type == TaskType.CC else NotificationCategory.TODO
             await _notify(db, user.id, category, f"待处理：{task.nodeName}", f"{task.nodeName} 有新的流程任务", task.id)
-        if not assignees and task_type != TaskType.APPROVE:
-            db.add(WorkflowLog(instanceId=instance_id, nodeId=node["id"], nodeName=node.get("name"), action=node_type, comment="无抄送/通知对象，自动跳过"))
+        if not assignees:
+            db.add(WorkflowLog(instanceId=instance_id, nodeId=node["id"], nodeName=node.get("name"), action=node_type, comment="无审批人，已跳过"))
     instance.currentNodeIds = current_ids or next_ids
 
 
@@ -203,16 +253,18 @@ async def scan_timeouts() -> int:
     return count
 
 
-async def act_on_task(db: Session, *, tenant_id: str, user_id: str, task_id: str, action: str, comment: str | None) -> WorkflowInstance:
-    task = (
+async def act_on_task(db: Session, *, tenant_id: str, user_id: str, task_id: str, action: str, comment: str | None, is_admin: bool = False) -> WorkflowInstance:
+    q = (
         db.query(WorkflowTask)
         .options(joinedload(WorkflowTask.instance).joinedload(WorkflowInstance.workflow))
-        .filter(WorkflowTask.id == task_id, WorkflowTask.assigneeId == user_id)
-        .first()
+        .filter(WorkflowTask.id == task_id)
     )
+    if not is_admin:
+        q = q.filter(WorkflowTask.assigneeId == user_id)
+    task = q.first()
     if not task:
         raise ApiError(404, "任务不存在")
-    if task.status != TaskStatus.PENDING:
+    if task.status not in (TaskStatus.PENDING, TaskStatus.TIMEOUT):
         raise ApiError(400, "任务已处理")
     if task.instance.workflow.tenantId != tenant_id:
         raise ApiError(403, "无权限")

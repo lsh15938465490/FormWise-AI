@@ -13,11 +13,13 @@ export function useFormEngine(
   const methods = useForm({
     resolver: zodResolver(zodSchema),
     defaultValues: (defaultValues ?? {}) as Record<string, string>,
+    shouldFocusError: true,
   });
   const [submitting, setSubmitting] = useState(false);
   const values = methods.watch() as Record<string, unknown>;
+  const { errors: formErrors, submitCount } = methods.formState;
   const errors = Object.fromEntries(
-    Object.entries(methods.formState.errors).map(([k, v]) => [k, String(v?.message ?? "校验失败")]),
+    Object.entries(formErrors).map(([k, v]) => [k, String((v as { message?: string })?.message ?? "校验失败")]),
   );
-  return { methods, values, errors, submitting, setSubmitting };
+  return { methods, values, errors, submitting, setSubmitting, submitCount };
 }

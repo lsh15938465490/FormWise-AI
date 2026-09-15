@@ -8,8 +8,8 @@ from app.db import get_db
 from app.deps import AuthUser, require_permission
 from app.excel_export import records_to_xlsx
 from app.http import ApiError, dump, ok, paginated
-from app.models import Form, FormRecord, FormStatus, WorkflowDefStatus, WorkflowDefinition, WorkflowInstance
-from app.workflow_engine import retry_rejected, start_workflow
+from app.models import Form, FormRecord, FormStatus, WorkflowInstance
+from app.workflow_engine import ensure_published_workflow, retry_rejected, start_workflow
 
 router = APIRouter(tags=["records"])
 
@@ -67,18 +67,24 @@ def export_records(form_id: str, db: Session = Depends(get_db), auth: AuthUser =
     if not form:
         raise ApiError(404, "表单不存在")
     props = (form.schemaJson or {}).get("properties") or {}
-    fields = list(props.keys())
-    headers = ["id", "status", *fields]
+    field_keys = []
+    titles = []
+    for key, spec in props.items():
+        field_keys.append(key)
+        title = spec.get("title") if isinstance(spec, dict) else None
+        titles.append(str(title or key))
+    headers = ["编号", "状态", *titles]
     rows = db.query(FormRecord).filter(FormRecord.formId == form.id, FormRecord.tenantId == auth.tenantId).order_by(FormRecord.createdAt.desc()).all()
+    status_map = {"submitted": "审批中", "archived": "已通过", "rejected": "已驳回"}
     data = []
     for r in rows:
         payload = r.dataJson or {}
-        data.append([r.id, r.status, *[str(payload.get(f, "")) for f in fields]])
+        data.append([r.id, status_map.get(r.status, r.status), *[str(payload.get(f, "")) for f in field_keys]])
     content = records_to_xlsx(headers, data)
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="records.xlsx"'},
+        headers={"Content-Disposition": "attachment; filename=\"data.xlsx\"; filename*=UTF-8''%E4%B8%9A%E5%8A%A1%E6%95%B0%E6%8D%AE.xlsx"},
     )
 
 
@@ -94,20 +100,18 @@ async def create_record(
         raise ApiError(404, "已发布表单不存在")
     record = FormRecord(tenantId=auth.tenantId, formId=form.id, dataJson=body.dataJson, createdById=auth.id, status="submitted")
     db.add(record)
-    db.flush()
-    wf = (
-        db.query(WorkflowDefinition)
-        .filter(WorkflowDefinition.formId == form.id, WorkflowDefinition.tenantId == auth.tenantId, WorkflowDefinition.status == WorkflowDefStatus.PUBLISHED)
-        .order_by(WorkflowDefinition.publishedAt.desc())
-        .first()
-    )
+    db.commit()
+    db.refresh(record)
     instance = None
-    if wf:
+    try:
+        wf = ensure_published_workflow(db, form=form, user_id=auth.id)
         instance = await start_workflow(db, tenant_id=auth.tenantId, workflow_id=wf.id, record_id=record.id, form_id=form.id, initiator_id=auth.id)
         record = db.query(FormRecord).filter(FormRecord.id == record.id).one()
-    else:
-        db.commit()
-        db.refresh(record)
+    except ApiError:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise ApiError(500, f"记录已保存，流程启动失败：{exc}") from exc
     inst_out = None
     if instance:
         logs = sorted(instance.logs, key=lambda x: x.createdAt)

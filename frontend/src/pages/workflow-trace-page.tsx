@@ -4,6 +4,7 @@ import "@xyflow/react/dist/style.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/modal";
 import { workflowApi } from "@/lib/api";
+import { FLOW_ACTION, INSTANCE_STATUS, NODE_TYPE, TASK_STATUS, labelOf } from "@/lib/labels";
 
 type Log = { id: string; action: string; comment?: string; nodeName?: string; createdAt: string };
 type Task = { nodeId?: string; nodeName: string; status: string };
@@ -39,7 +40,7 @@ function TraceCanvas({ inst }: { inst: Instance }) {
       return {
         id: n.id,
         position: { x: n.x ?? 80 + i * 180, y: n.y ?? 120 },
-        data: { label: `${n.name}\n${st || n.type}` },
+        data: { label: `${n.name}\n${st ? labelOf(TASK_STATUS, st) : labelOf(NODE_TYPE, n.type)}` },
         style: { borderColor: nodeColor(st), borderWidth: 2, fontSize: 12 },
       };
     });
@@ -78,7 +79,7 @@ export function WorkflowTracePage() {
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
       <Card className="space-y-2 p-3">
-        <h1 className="text-lg font-semibold">流程实例</h1>
+        <h1 className="text-lg font-semibold">办理进度</h1>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {items.map((it) => (
           <button
@@ -87,12 +88,12 @@ export function WorkflowTracePage() {
             onClick={() => setCurrent(it)}
           >
             <div>{it.workflow?.name}</div>
-            <Badge>{it.status}</Badge>
+            <Badge>{labelOf(INSTANCE_STATUS, it.status)}</Badge>
           </button>
         ))}
       </Card>
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold">节点状态 / 溯源</h2>
+        <h2 className="text-lg font-semibold">审批过程</h2>
         {current ? (
           <ReactFlowProvider>
             <TraceCanvas inst={current} />
@@ -101,7 +102,7 @@ export function WorkflowTracePage() {
         <div className="flex flex-wrap gap-2 text-xs">
           {(current?.tasks ?? []).map((t, i) => (
             <Badge key={i}>
-              {t.nodeName} · {t.status}
+              {t.nodeName} · {labelOf(TASK_STATUS, t.status)}
             </Badge>
           ))}
         </div>
@@ -109,13 +110,13 @@ export function WorkflowTracePage() {
           {(current?.logs ?? []).map((log) => (
             <li key={log.id} className="border-l-2 border-primary/30 pl-3">
               <div className="font-medium">
-                {log.nodeName ?? "系统"} · {log.action}
+                {log.nodeName ?? "系统"} · {labelOf(FLOW_ACTION, log.action)}
               </div>
               <div className="text-muted-foreground">{log.comment}</div>
               <div className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</div>
             </li>
           ))}
-          {!current?.logs?.length ? <p className="text-muted-foreground">暂无日志</p> : null}
+          {!current?.logs?.length ? <p className="text-muted-foreground">暂无记录</p> : null}
         </ol>
       </Card>
     </div>

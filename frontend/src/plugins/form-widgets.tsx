@@ -1,6 +1,6 @@
 import type { FormWidgetProps } from "@/plugins/registry";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { POSITION_BY_DEPT } from "@/lib/form-schema";
+import { POSITION_BY_DEPT, resolveFieldOptions } from "@/lib/form-schema";
 import type { ReactNode } from "react";
 
 function FieldLabel({ field, children }: { field: FormWidgetProps["field"]; children: ReactNode }) {
@@ -31,7 +31,7 @@ export function TextareaWidget({ field, value, onChange }: FormWidgetProps) {
 export function SelectWidget({ field, value, onChange, allValues }: FormWidgetProps) {
   const dept = allValues?.department;
   const linked = field.name === "position" && typeof dept === "string" ? POSITION_BY_DEPT[dept] : undefined;
-  const options = linked ?? field.options ?? [];
+  const options = linked?.length ? linked : resolveFieldOptions(field);
   return (
     <FieldLabel field={field}>
       <Select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)}>
@@ -81,7 +81,7 @@ export function RadioWidget({ field, value, onChange }: FormWidgetProps) {
     <fieldset className="space-y-1.5">
       <legend className="text-sm font-medium">{field.title ?? field.name}</legend>
       <div className="flex flex-wrap gap-3">
-        {(field.options ?? []).map((opt) => (
+        {resolveFieldOptions(field).map((opt) => (
           <label key={opt.value} className="flex items-center gap-1 text-sm font-normal">
             <input type="radio" checked={value === opt.value} onChange={() => onChange(opt.value)} />
             {opt.label}
@@ -98,7 +98,7 @@ export function CheckboxWidget({ field, value, onChange }: FormWidgetProps) {
     <fieldset className="space-y-1.5">
       <legend className="text-sm font-medium">{field.title ?? field.name}</legend>
       <div className="flex flex-wrap gap-3">
-        {(field.options ?? []).map((opt) => (
+        {resolveFieldOptions(field).map((opt) => (
           <label key={opt.value} className="flex items-center gap-1 text-sm font-normal">
             <input
               type="checkbox"

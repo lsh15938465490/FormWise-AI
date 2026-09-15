@@ -9,8 +9,8 @@ import { Input, Label } from "@/components/ui/input";
 export function LoginPage() {
   const navigate = useNavigate();
   const setSession = useAuthStore((s) => s.setSession);
-  const [email, setEmail] = useState("admin@formwise.local");
-  const [password, setPassword] = useState("Admin123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -36,16 +36,16 @@ export function LoginPage() {
       <Card className="w-full max-w-md space-y-4">
         <div>
           <h1 className="text-xl font-semibold">FormWise-AI</h1>
-          <p className="text-sm text-muted-foreground">演示账号 admin / manager / employee@formwise.local ，密码 Admin123!</p>
+          <p className="mt-1 text-sm text-muted-foreground">企业内部表单与审批</p>
         </div>
         <form className="space-y-3" onSubmit={onSubmit}>
           <Label>
-            邮箱
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            账号
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="请输入账号" autoComplete="username" />
           </Label>
           <Label>
             密码
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="请输入密码" autoComplete="current-password" />
           </Label>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button className="w-full" disabled={loading} type="submit">

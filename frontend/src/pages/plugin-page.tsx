@@ -3,16 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { pluginApi } from "@/lib/api";
-import { getRegistrySnapshot, syncEnabledPlugins } from "@/plugins/registry";
+import { syncEnabledPlugins } from "@/plugins/registry";
 import { usePermission } from "@/hooks/use-permission";
 import type { PluginEntity } from "@/types/api";
+import { PLUGIN_TYPE, labelOf } from "@/lib/labels";
 
 export function PluginPage() {
   const { can } = usePermission();
   const [items, setItems] = useState<PluginEntity[]>([]);
-  const local = getRegistrySnapshot();
-  const [code, setCode] = useState("CustomInput");
-  const [name, setName] = useState("自定义输入");
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
   const [type, setType] = useState<"FORM_COMPONENT" | "WORKFLOW_NODE">("FORM_COMPONENT");
 
   async function load() {
@@ -25,27 +25,28 @@ export function PluginPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">插件注册中心</h1>
+      <h1 className="text-2xl font-semibold">控件扩展</h1>
       <Card>
-        <p className="text-sm text-muted-foreground">
-          前端运行时组件：{local.formWidgets.join(", ")}；流程节点：{local.workflowNodes.join(", ")}
-        </p>
+        <p className="text-sm text-muted-foreground">启用或停用表单控件与流程节点，供设计表单和流程时使用。</p>
       </Card>
       {can("plugin:write") ? (
         <Card className="flex flex-wrap items-end gap-2">
           <Select value={type} onChange={(e) => setType(e.target.value as typeof type)}>
-            <option value="FORM_COMPONENT">FORM_COMPONENT</option>
-            <option value="WORKFLOW_NODE">WORKFLOW_NODE</option>
+            <option value="FORM_COMPONENT">表单控件</option>
+            <option value="WORKFLOW_NODE">流程节点</option>
           </Select>
-          <Input className="w-40" value={code} onChange={(e) => setCode(e.target.value)} />
-          <Input className="w-40" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input className="w-40" value={name} onChange={(e) => setName(e.target.value)} placeholder="显示名称" />
+          <Input className="w-40" value={code} onChange={(e) => setCode(e.target.value)} placeholder="内部编码" />
           <Button
             onClick={async () => {
-              await pluginApi.create({ type, code, name, configJson: {} });
+              if (!name.trim() || !code.trim()) return;
+              await pluginApi.create({ type, code: code.trim(), name: name.trim(), configJson: {} });
+              setName("");
+              setCode("");
               await load();
             }}
           >
-            注册插件
+            添加
           </Button>
         </Card>
       ) : null}
@@ -53,9 +54,8 @@ export function PluginPage() {
         {items.map((p) => (
           <Card key={p.id} className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-muted-foreground">{p.type}</div>
+              <div className="text-xs text-muted-foreground">{labelOf(PLUGIN_TYPE, p.type)}</div>
               <div className="font-medium">{p.name}</div>
-              <div className="text-sm">{p.code}</div>
             </div>
             {can("plugin:write") ? (
               <Button

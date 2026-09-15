@@ -6,6 +6,7 @@ import urllib.request
 from copy import deepcopy
 
 from app.config import get_settings
+from app.form_options import fill_schema_options, resolve_options
 
 DEPT_OPTIONS = [
     {"label": "人事部", "value": "hr"},
@@ -108,23 +109,29 @@ def _pack(name: str, prompt: str, fields: list[dict]) -> dict:
             "title": field.get("label") or field.get("title"),
             "component": field["component"],
             "placeholder": field.get("placeholder"),
-            "options": field.get("options"),
+            "options": resolve_options(
+                field["name"],
+                str(field.get("label") or field.get("title") or field["name"]),
+                str(field.get("component") or "Input"),
+                field.get("options"),
+            ),
             "validations": field.get("validations"),
             "itemFields": field.get("itemFields"),
         }
         if field.get("required"):
             required.append(field["name"])
     groups, layout_tip = _recommend_layout(fields)
-    return {
+    packed = {
         "name": name,
         "description": f"由自然语言生成：{prompt[:80]}",
-        "schemaJson": {"type": "object", "properties": properties, "required": required},
+        "schemaJson": fill_schema_options({"type": "object", "properties": properties, "required": required}),
         "dataModelJson": {"fields": [{"name": f["name"], "type": f["type"], "required": bool(f.get("required"))} for f in fields]},
         "linkageJson": _linkage_for(fields),
         "layoutJson": {"groups": groups, "tip": layout_tip},
         "fields": fields,
         "layoutTip": layout_tip,
     }
+    return packed
 
 
 def _try_llm(prompt: str, current: dict | None) -> dict | None:

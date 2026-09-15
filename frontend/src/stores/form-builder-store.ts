@@ -17,6 +17,7 @@ type FormBuilderState = {
   setSelectedField: (name: string | null) => void;
   setValue: (name: string, value: unknown) => void;
   setDirty: (dirty: boolean) => void;
+  updateForm: (patch: Partial<FormEntity>) => void;
 };
 
 export const useFormBuilderStore = create<FormBuilderState>((set) => ({
@@ -35,4 +36,6 @@ export const useFormBuilderStore = create<FormBuilderState>((set) => ({
   setSelectedField: (selectedField) => set({ selectedField }),
   setValue: (name, value) => set((s) => ({ values: { ...s.values, [name]: value } })),
   setDirty: (dirty) => set({ dirty }),
+  updateForm: (patch) =>
+    set((s) => (s.form ? { form: { ...s.form, ...patch }, dirty: true } : {})),
 }));

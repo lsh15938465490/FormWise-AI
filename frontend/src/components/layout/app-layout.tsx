@@ -10,13 +10,13 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { to: "/", label: "工作台", icon: LayoutDashboard },
-  { to: "/forms", label: "AI 表单引擎", icon: FileText },
-  { to: "/workflows", label: "工作流引擎", icon: GitBranch },
-  { to: "/records", label: "数据管理", icon: Table2 },
+  { to: "/forms", label: "表单", icon: FileText },
+  { to: "/workflows", label: "审批流程", icon: GitBranch },
+  { to: "/records", label: "业务数据", icon: Table2 },
   { to: "/tasks", label: "待办审批", icon: Shield },
-  { to: "/messages", label: "消息中心", icon: Inbox },
-  { to: "/admin/users", label: "用户权限", icon: Users },
-  { to: "/admin/plugins", label: "插件中心", icon: Puzzle },
+  { to: "/messages", label: "消息", icon: Inbox },
+  { to: "/admin/users", label: "组织权限", icon: Users, admin: true },
+  { to: "/admin/plugins", label: "控件扩展", icon: Puzzle, admin: true },
 ];
 
 export function AppLayout() {
@@ -37,14 +37,16 @@ export function AppLayout() {
   }, [user, navigate]);
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r border-border bg-white p-4">
-        <div className="mb-6 px-2">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-white p-4">
+        <div className="mb-6 shrink-0 px-2">
           <div className="text-lg font-semibold">FormWise-AI</div>
           <div className="text-xs text-muted-foreground">零代码应用搭建</div>
         </div>
         <nav className="space-y-1">
-          {nav.map((item) => (
+          {nav
+            .filter((item) => !item.admin || user?.roles.includes("admin"))
+            .map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -62,9 +64,9 @@ export function AppLayout() {
           ))}
         </nav>
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b border-border bg-white px-6">
-          <div className="text-sm text-muted-foreground">企业轻量化业务应用平台</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-white px-6">
+          <div className="text-sm text-muted-foreground">表单填报与审批</div>
           <div className="flex items-center gap-3 text-sm">
             <button className="inline-flex items-center gap-1 text-muted-foreground" onClick={() => navigate("/messages")}>
               <Bell size={16} />
@@ -83,8 +85,10 @@ export function AppLayout() {
             </button>
           </div>
         </header>
-        <main className="flex-1 p-6">
-          <Outlet />
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+          <div className="h-full min-h-0 flex-1 overflow-y-auto">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -22,7 +22,9 @@ from app.models import (
 )
 from app.security import hash_password
 
-LEAVE_SCHEMA = {
+from app.form_options import fill_schema_options
+
+LEAVE_SCHEMA = fill_schema_options({
     "type": "object",
     "properties": {
         "name": {"type": "string", "title": "姓名", "component": "Input"},
@@ -32,7 +34,7 @@ LEAVE_SCHEMA = {
         "reason": {"type": "string", "title": "请假原因", "component": "Textarea"},
     },
     "required": ["name", "department", "leaveType", "duration", "reason"],
-}
+})
 
 SIMPLE_FLOW = {
     "nodes": [

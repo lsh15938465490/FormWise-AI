@@ -21,14 +21,17 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button className="text-muted-foreground" onClick={onClose}>
             关闭
           </button>
         </div>
-        {children}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">{children}</div>
       </div>
     </div>
   );

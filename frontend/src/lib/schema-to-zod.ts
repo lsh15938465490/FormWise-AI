@@ -22,7 +22,7 @@ function fieldZod(field: FormFieldDef): ZodTypeAny {
     if (field.validations?.max !== undefined) schema = schema.max(field.validations.max);
     return field.required ? schema : schema.optional();
   }
-  let schema = z.string();
+  let schema = z.string({ required_error: `${field.title}必填`, invalid_type_error: `${field.title}必填` });
   if (field.validations?.pattern) {
     schema = schema.regex(new RegExp(field.validations.pattern), `${field.title}格式不正确`);
   }
